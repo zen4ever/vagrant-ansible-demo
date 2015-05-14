@@ -1,0 +1,37 @@
+- hosts: all
+  sudo: yes
+  vars:
+    project_name: test_project
+  tasks:
+    - name: Install packages
+      apt: pkg={{ item }} state=installed update_cache=yes
+      with_items:
+        # Python Dev
+        - python-dev
+        - python-setuptools
+        - python-virtualenv
+
+    - name: ensure ntpd is at the latest version
+      apt: pkg=ntp state=latest
+      notify:
+      - restart ntp
+
+    - name: create deploy user
+      user: name=deploy
+
+    - name: create test project
+      file: state=directory path=/home/deploy/{{ project_name }} owner=deploy group=deploy
+
+    - name: copy requirements.txt
+      copy: src=requirements.txt dest=/home/deploy/{{ project_name }}/requirements.txt
+
+    - name: install requirements
+      sudo_user: deploy
+      pip: requirements=/home/deploy/{{ project_name }}/requirements.txt virtualenv=/home/deploy/{{ project_name }}/.environment
+
+    - name: create file from template
+      template: src=hello.sh.j2 dest=/home/deploy/{{ project_name }}/hello.sh owner=deploy group=deploy mode=755
+
+  handlers:
+    - name: restart ntp
+      service: name=ntp state=restarted
